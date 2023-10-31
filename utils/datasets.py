@@ -949,7 +949,6 @@ def autosplit(path='../datasets/coco128/images', weights=(0.9, 0.1, 0.0), annota
 def verify_image_label(args):
     # Verify one image-label pair
     im_file, lb_file, prefix, cls_name_list = args
-    print(cls_name_list)
     nm, nf, ne, nc, msg, segments = 0, 0, 0, 0, '', []  # number (missing, found, empty, corrupt), message, segments
     try:
         # verify images
