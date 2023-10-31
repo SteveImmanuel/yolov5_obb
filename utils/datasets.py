@@ -447,7 +447,7 @@ class LoadImagesAndLabels(Dataset):
         self.img_files = list(cache.keys())  # update
         self.label_files = img2label_paths(cache.keys())  # update
         n = len(shapes)  # number of images
-        bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
+        bi = np.floor(np.arange(n) / batch_size).astype(np.int32)  # batch index
         nb = bi[-1] + 1  # number of batches
         self.batch = bi  # batch index of image
         self.n = n
@@ -489,7 +489,7 @@ class LoadImagesAndLabels(Dataset):
                 elif mini > 1: # batch图像高宽比均大于1时, shape=[1, w/h] = [h_ratio, w_ratio]
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride # (nb, [h_rect, w_rect])
+            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int32) * stride # (nb, [h_rect, w_rect])
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         self.imgs, self.img_npy = [None] * n, [None] * n
@@ -915,7 +915,7 @@ def extract_boxes(path='../datasets/coco128'):  # from utils.datasets import *; 
                     b = x[1:] * [w, h, w, h]  # box
                     # b[2:] = b[2:].max()  # rectangle to square
                     b[2:] = b[2:] * 1.2 + 3  # pad
-                    b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int)
+                    b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int32)
 
                     b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
                     b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
@@ -949,6 +949,7 @@ def autosplit(path='../datasets/coco128/images', weights=(0.9, 0.1, 0.0), annota
 def verify_image_label(args):
     # Verify one image-label pair
     im_file, lb_file, prefix, cls_name_list = args
+    print(cls_name_list)
     nm, nf, ne, nc, msg, segments = 0, 0, 0, 0, '', []  # number (missing, found, empty, corrupt), message, segments
     try:
         # verify images
@@ -963,13 +964,11 @@ def verify_image_label(args):
                 if f.read() != b'\xff\xd9':  # corrupt JPEG
                     ImageOps.exif_transpose(Image.open(im_file)).save(im_file, 'JPEG', subsampling=0, quality=100)
                     msg = f'{prefix}WARNING: {im_file}: corrupt JPEG restored and saved'
-
         # verify labels
         if os.path.isfile(lb_file):
             nf = 1  # label found
             with open(lb_file) as f:
                 labels = [x.split() for x in f.read().strip().splitlines() if len(x)]
-
                 # Yolov5-obb does not support segment labels yet
                 # if any([len(x) > 8 for x in l]):  # is segment
                 #     classes = np.array([x[0] for x in l], dtype=np.float32)
@@ -980,7 +979,8 @@ def verify_image_label(args):
                     if label[-1] == "2": # diffcult
                         continue
                     cls_id = cls_name_list.index(label[8])
-                    l_.append(np.concatenate((cls_id, label[:8]), axis=None))
+                    cur_lbl = [float(x) for x in label[:8]]
+                    l_.append(np.concatenate((cls_id, cur_lbl), axis=None))
                 l = np.array(l_, dtype=np.float32)
             nl = len(l)
             if nl:
